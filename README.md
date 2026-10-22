@@ -234,6 +234,7 @@ Set environment variables consistently on every rank, before importing the packa
 | `EP_AVOID_RECORD_STREAM` | Required for Bucket all-gather; EP retains URMA sources through epilogue captures independently of this flag |
 | `EP_BUFFER_DEBUG` | Print EP buffer initialization diagnostics; unset to disable |
 | `EP_DISABLE_BARRIER_PROFILING` | Disable the extra per-iteration synchronization used by benchmark helpers |
+| `EP_COMM_NET_LAYER` | HCCL rank-graph network layer for UBMEM and URMA channels; defaults to `1` (external Clos). Set `0` for intra-node communication when the external network is unavailable |
 
 DeepJIT settings use `EP_JIT_*` for DeepEP, falling back to the corresponding `DJ_JIT_*` process-wide setting and then the built-in default. For example, `EP_JIT_CACHE_DIR` takes precedence over `DJ_JIT_CACHE_DIR`. The Ascend backend supports:
 
@@ -248,6 +249,8 @@ DeepJIT settings use `EP_JIT_*` for DeepEP, falling back to the corresponding `D
 | `EP_JIT_PRINT_LOAD_TIME` | `0` | Print kernel binary load timings |
 
 See [DeepJIT's environment reference](https://github.com/deepseek-ai/DeepJIT#environment-variables) for details.
+
+For a single-host deployment whose external Clos channels time out during buffer initialization, set `EP_COMM_NET_LAYER=0` on every rank before importing the package. Layer 0 preserves each peer's native Mesh endpoints and uses an independent Jetty and transport connection for every AIV/peer pair. Its performance is not directly comparable to the layer 1 measurements above. The selected layer must exist in the HCCL rank graph and provide both UBMEM and UBC_CTP links between all participating ranks.
 
 To reproduce the default EP performance cases after activating the CANN environment:
 

@@ -30,6 +30,11 @@
 
 namespace deep_ep {
 
+#ifndef EP_NATIVE_MESH_JETTIES
+#define EP_NATIVE_MESH_JETTIES 0
+#endif
+static constexpr bool kNativeMeshJetties = EP_NATIVE_MESH_JETTIES != 0;
+
 using sf_pack_t = int16_t;
 
 static constexpr int kNumMaxRanks = 256;

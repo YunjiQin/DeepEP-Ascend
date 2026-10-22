@@ -1,0 +1,17 @@
+Initializing EP buffer with 119537664 bytes at rank EP 2/8
+Initializing EP buffer with 119537664 bytes at rank EP 7/8
+Initializing EP buffer with 119537664 bytes at rank EP 5/8
+Initializing EP buffer with 119537664 bytes at rank EP 6/8
+Initializing EP buffer with 119537664 bytes at rank EP 4/8
+Initializing EP buffer with 119537664 bytes at rank EP 1/8
+Initializing EP buffer with 119537664 bytes at rank EP 0/8
+Initializing EP buffer with 119537664 bytes at rank EP 3/8
+Config:
+ > Ranks: 8
+ > Experts: 6/256
+ > Tokens: 1024 (max: 1024), hidden: 7168
+ > #AI cores: 32
+ > Modes: do_expand=1, allow_hybrid_mode=0, allow_multiple_reduction=1
+
+Running expand dispatch/combine test cases:
+ > Testing with expert_alignment=128, use_fp8_dispatch=False, use_col_major_sf=False, bias=None ...

@@ -22,6 +22,7 @@
 
 #include <deep_ep/common/math.hpp>
 #include <deep_ep/common/exception.hpp>
+#include <deep_jit/utils/env.hpp>
 
 #include "symmetric.hpp"
 
@@ -43,6 +44,8 @@ struct HCCLContext {
     // Jetty endpoints, peer channels and their device lookup table
     std::vector<EndpointHandle> jetty_endpoints;
     std::vector<ChannelHandle> channel_handles;
+    // AIV owners; each owns one Clos queue or num_ranks-1 native Mesh queues.
+    int num_jetty_owners = 0;
     void* jetty_device_ptrs = nullptr;  // Device copy of `channel_handles`
 
     HCCLContext(const std::string& hccl_group_name, const int& rank_idx,
@@ -83,16 +86,22 @@ struct HCCLContext {
 
         if (num_ranks > 1) {
             EP_HOST_ASSERT(num_ranks % 2 == 0);
-            // Use net layer 1 for UBMEM channels and Jetties
+            // Layer 1 is the external Clos network used by the published benchmarks.
+            // Local deployments can select their intra-node network explicitly.
             uint32_t* layers = nullptr;
             uint32_t num_layers = 0;
             HCCL_CHECK(HcclRankGraphGetLayers(comm, &layers, &num_layers));
-            EP_HOST_ASSERT(num_layers > 1);
-            // HCCL owns `layers` and subsequent calls may invalidate it, so copy the layer value immediately.
-            const auto layer = layers[1];
+            const auto requested_layer = deep_jit::get_env<int>("EP_COMM_NET_LAYER", 1);
+            EP_HOST_ASSERT(requested_layer >= 0);
+            // HCCL owns `layers`; copy before any further rank-graph calls.
+            const std::vector<uint32_t> available_layers(layers, layers + num_layers);
+            const auto layer = static_cast<uint32_t>(requested_layer);
+            EP_HOST_ASSERT(std::find(available_layers.begin(), available_layers.end(), layer) != available_layers.end() and
+                           "EP_COMM_NET_LAYER is unavailable in this communication group");
 
             // Acquire UBMEM channels and Jetties
             acquire_ubmem_channels(layer);
+            num_jetty_owners = num_jetties;
             acquire_jetties(layer, num_jetties, buffer_uid, num_cpu_timeout_secs);
         }
     }
@@ -196,9 +205,14 @@ private:
     // Acquire exactly one shared Jetty per AIV, with separate channels for peer metadata.
     void acquire_jetties(uint32_t layer, const int& num_jetties,
                          const std::string& buffer_uid, const int& num_cpu_timeout_secs) {
-        const auto peer_descs = build_peer_descs(layer,
+        auto peer_descs = build_peer_descs(layer,
             [](auto proto) { return proto == COMM_PROTOCOL_UBC_CTP; },
             "no UBC_CTP link to peer on the chosen layer");
+
+        if (layer == 0) {
+            acquire_mesh_jetties(peer_descs, num_jetties, buffer_uid, num_cpu_timeout_secs);
+            return;
+        }
 
         const auto num_peers = num_ranks - 1;
         const auto num_channels = math::max(num_jetties, num_peers);
@@ -280,16 +294,77 @@ private:
                               ACL_MEMCPY_HOST_TO_DEVICE));
     }
 
+    // Native Mesh links have peer-specific ports. Give each (AIV, peer) its
+    // own endpoint, SQ and transport connection; never rewrite rank-graph EIDs.
+    void acquire_mesh_jetties(const std::vector<HcclChannelDesc>& peer_descs,
+                              int num_jetties, const std::string& buffer_uid,
+                              int num_cpu_timeout_secs) {
+        const int num_peers = num_ranks - 1;
+        const int num_channels = num_jetties * num_peers;
+        jetty_endpoints.resize(num_channels);
+        jetty_mem_handles.resize(num_channels);
+        channel_handles.resize(num_channels);
+        channel_names.resize(num_channels);
+        std::vector<uint16_t> local_ports(num_channels);
+        CommMem mem{};
+        mem.type = COMM_MEM_TYPE_DEVICE;
+        mem.addr = buffer;
+        mem.size = static_cast<uint64_t>(num_bytes);
+        for (int i = 0; i < num_channels; ++ i) {
+            const auto& peer_desc = peer_descs[i % num_peers];
+            HCOMM_CHECK(HcommEndpointCreate(&peer_desc.localEndpoint, &jetty_endpoints[i]));
+            HCOMM_CHECK(HcommMemReg(jetty_endpoints[i], buffer_uid.c_str(), &mem, &jetty_mem_handles[i]));
+            uint32_t port = 0;
+            HCOMM_CHECK(HcommEndpointGetListenPort(jetty_endpoints[i], &port));
+            EP_HOST_ASSERT(port > 0 and port <= std::numeric_limits<uint16_t>::max());
+            local_ports[i] = static_cast<uint16_t>(port);
+        }
+        const auto ports = gather_listen_ports(local_ports, num_cpu_timeout_secs);
+        for (int i = 0; i < num_channels; ++ i) {
+            const int core_idx = i / num_peers;
+            const auto& peer_desc = peer_descs[i % num_peers];
+            const int peer_rank = static_cast<int>(peer_desc.remoteRank);
+            const int server_rank = std::min(rank_idx, peer_rank);
+            const int client_rank = std::max(rank_idx, peer_rank);
+            const int server_peer_idx = client_rank - 1;
+            channel_names[i] = buffer_uid + "/mesh/" + std::to_string(server_rank) + "-" +
+                std::to_string(client_rank) + "/" + std::to_string(core_idx);
+            EP_HOST_ASSERT(channel_names[i].size() <= HCOMM_CHANNEL_NAME_MAX_LEN);
+            HcommChannelDesc desc;
+            HCOMM_CHECK(HcommChannelDescInit(&desc, 1));
+            desc.remoteEndpoint = peer_desc.remoteEndpoint;
+            desc.notifyNum = 3;
+            desc.memHandles = &jetty_mem_handles[i];
+            desc.memHandleNum = 1;
+            desc.role = rank_idx < peer_rank ? HCOMM_SOCKET_ROLE_SERVER : HCOMM_SOCKET_ROLE_CLIENT;
+            desc.port = ports[server_rank * num_channels + core_idx * num_peers + server_peer_idx];
+            desc.channelName = channel_names[i].c_str();
+            // No shared-queue config: both ends have a private Jetty for this AIV/peer.
+            HCOMM_CHECK(HcommChannelCreate(jetty_endpoints[i], COMM_ENGINE_AIV, &desc, 1,
+                                          channel_handles.data() + i));
+        }
+        wait_for_channels(num_cpu_timeout_secs);
+        const size_t table_bytes = channel_handles.size() * sizeof(ChannelHandle);
+        ACL_CHECK(aclrtMalloc(&jetty_device_ptrs, table_bytes, ACL_MEM_MALLOC_HUGE_FIRST));
+        ACL_CHECK(aclrtMemcpy(jetty_device_ptrs, table_bytes, channel_handles.data(), table_bytes,
+                              ACL_MEMCPY_HOST_TO_DEVICE));
+    }
+
     std::vector<uint16_t> gather_listen_ports(const uint16_t& listen_port, const int& num_cpu_timeout_secs) const {
+        return gather_listen_ports(std::vector<uint16_t>{listen_port}, num_cpu_timeout_secs);
+    }
+
+    std::vector<uint16_t> gather_listen_ports(const std::vector<uint16_t>& local_ports, const int& num_cpu_timeout_secs) const {
         // Exchange once per buffer, regardless of the number of peers or Jetties.
-        std::vector<uint16_t> listen_ports(num_ranks);
-        const auto num_port_bytes = sizeof(uint16_t) * num_ranks;
+        std::vector<uint16_t> listen_ports(num_ranks * local_ports.size());
+        const auto local_bytes = local_ports.size() * sizeof(uint16_t);
+        const auto num_port_bytes = listen_ports.size() * sizeof(uint16_t);
         void* device_ports = nullptr;
-        ACL_CHECK(aclrtMalloc(&device_ports, num_port_bytes + sizeof(uint16_t), ACL_MEM_MALLOC_NORMAL_ONLY));
+        ACL_CHECK(aclrtMalloc(&device_ports, num_port_bytes + local_bytes, ACL_MEM_MALLOC_NORMAL_ONLY));
         const auto stream = c10_npu::getCurrentNPUStream();
         const auto local_port = math::advance_ptr<void>(device_ports, num_port_bytes);
-        ACL_CHECK(aclrtMemcpy(local_port, sizeof(listen_port), &listen_port, sizeof(listen_port), ACL_MEMCPY_HOST_TO_DEVICE));
-        HCCL_CHECK(HcclAllGather(local_port, device_ports, 1, HCCL_DATA_TYPE_UINT16, comm, stream));
+        ACL_CHECK(aclrtMemcpy(local_port, local_bytes, local_ports.data(), local_bytes, ACL_MEMCPY_HOST_TO_DEVICE));
+        HCCL_CHECK(HcclAllGather(local_port, device_ports, local_ports.size(), HCCL_DATA_TYPE_UINT16, comm, stream));
         ACL_CHECK(aclrtSynchronizeStreamWithTimeout(stream, num_cpu_timeout_secs * 1000));
         ACL_CHECK(aclrtMemcpy(listen_ports.data(), num_port_bytes, device_ports, num_port_bytes, ACL_MEMCPY_DEVICE_TO_HOST));
         ACL_CHECK(aclrtFree(device_ports));

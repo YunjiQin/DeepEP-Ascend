@@ -77,7 +77,10 @@ inline void init_jit(const std::string& library_root_path) {
     const deep_jit::Config config(library_root, "EP", {}, {include_dir}, {"deep_ep/"});
 
     jit = deep_jit::LazyInit<deep_jit::Runtime<deep_jit::Ascend>>([config] {
-        return std::make_shared<deep_jit::Runtime<deep_jit::Ascend>>(config);
+        auto instance = std::make_shared<deep_jit::Runtime<deep_jit::Ascend>>(config);
+        if (deep_jit::get_env<int>("EP_COMM_NET_LAYER", 1) == 0)
+            instance->default_compiler_options.extra_bisheng_flags.push_back("-DEP_NATIVE_MESH_JETTIES=1");
+        return instance;
     });
 }
 

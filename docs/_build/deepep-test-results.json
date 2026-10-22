@@ -1,0 +1,845 @@
+{
+  "summary_date": "2026-10-16",
+  "ep4": {
+    "task_id": "task_20261014_161751_346002531460",
+    "exit_code": 0,
+    "physical_devices": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "config": {
+      "ep": 4,
+      "network_layer": 0,
+      "tokens_per_rank": 16384,
+      "hidden": 7168,
+      "topk": 6,
+      "experts": 256,
+      "ai_cores": 32,
+      "expert_alignment": 128,
+      "warmups": 10,
+      "samples": 50,
+      "flush_l2": true,
+      "accounting": "received logical tensor bytes, including local tokens"
+    },
+    "cases": {
+      "native-bf16": [
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 142.507,
+          "urma_us": 7433.219,
+          "urma_gbps": 104,
+          "epilogue_us": 676.062
+        },
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 142.203,
+          "urma_us": 7432.194,
+          "urma_gbps": 105,
+          "epilogue_us": 677.264
+        },
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 142.005,
+          "urma_us": 7432.602,
+          "urma_gbps": 105,
+          "epilogue_us": 679.197
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 144.655,
+          "urma_us": 7432.43,
+          "urma_gbps": 105,
+          "epilogue_us": 679.977
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 134.483,
+          "urma_us": 7606.099,
+          "urma_gbps": 103,
+          "epilogue_us": 673.757
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 134.517,
+          "urma_us": 7606.115,
+          "urma_gbps": 102,
+          "epilogue_us": 663.75
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 135.828,
+          "urma_us": 7606.421,
+          "urma_gbps": 102,
+          "epilogue_us": 668.696
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 137.04,
+          "urma_us": 7605.888,
+          "urma_gbps": 103,
+          "epilogue_us": 667.337
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 502.146,
+          "urma_us": 10411.08,
+          "urma_gbps": 74,
+          "epilogue_us": 303.869
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 504.468,
+          "urma_us": 10411.517,
+          "urma_gbps": 74,
+          "epilogue_us": 304.653
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 505.533,
+          "urma_us": 10411.555,
+          "urma_gbps": 75,
+          "epilogue_us": 303.022
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 504.111,
+          "urma_us": 10411.361,
+          "urma_gbps": 75,
+          "epilogue_us": 302.848
+        }
+      ],
+      "native-fp8": [
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 85.403,
+          "urma_us": 3437.061,
+          "urma_gbps": 118,
+          "epilogue_us": 359.206
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 86.014,
+          "urma_us": 3437.235,
+          "urma_gbps": 118,
+          "epilogue_us": 359.242
+        },
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 87.179,
+          "urma_us": 3437.338,
+          "urma_gbps": 117,
+          "epilogue_us": 358.869
+        },
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 85.277,
+          "urma_us": 3437.237,
+          "urma_gbps": 117,
+          "epilogue_us": 356.233
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 78.827,
+          "urma_us": 3252.581,
+          "urma_gbps": 124,
+          "epilogue_us": 351.072
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 80.203,
+          "urma_us": 3252.562,
+          "urma_gbps": 124,
+          "epilogue_us": 354.386
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 78.537,
+          "urma_us": 3252.293,
+          "urma_gbps": 124,
+          "epilogue_us": 355.395
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 79.343,
+          "urma_us": 3252.571,
+          "urma_gbps": 124,
+          "epilogue_us": 352.901
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 505.374,
+          "urma_us": 10456.865,
+          "urma_gbps": 74,
+          "epilogue_us": 304.103
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 507.484,
+          "urma_us": 10456.787,
+          "urma_gbps": 74,
+          "epilogue_us": 303.329
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 499.124,
+          "urma_us": 10456.813,
+          "urma_gbps": 74,
+          "epilogue_us": 304.81
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 506.219,
+          "urma_us": 10456.734,
+          "urma_gbps": 74,
+          "epilogue_us": 303.153
+        }
+      ],
+      "canonical-private-fp8": [
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 85.211,
+          "urma_us": 10074.682,
+          "urma_gbps": 40,
+          "epilogue_us": 356.136
+        },
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 85.031,
+          "urma_us": 10074.68,
+          "urma_gbps": 40,
+          "epilogue_us": 359.395
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 85.978,
+          "urma_us": 10074.979,
+          "urma_gbps": 40,
+          "epilogue_us": 359.284
+        },
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 87.104,
+          "urma_us": 10075.506,
+          "urma_gbps": 40,
+          "epilogue_us": 358.244
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 78.356,
+          "urma_us": 9970.17,
+          "urma_gbps": 41,
+          "epilogue_us": 355.536
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 80.194,
+          "urma_us": 9970.401,
+          "urma_gbps": 40,
+          "epilogue_us": 354.523
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 79.242,
+          "urma_us": 9969.843,
+          "urma_gbps": 41,
+          "epilogue_us": 353.336
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 78.312,
+          "urma_us": 9970.124,
+          "urma_gbps": 40,
+          "epilogue_us": 351.456
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 504.286,
+          "urma_us": 19466.966,
+          "urma_gbps": 40,
+          "epilogue_us": 303.988
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 503.135,
+          "urma_us": 19466.685,
+          "urma_gbps": 40,
+          "epilogue_us": 303.153
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 499.159,
+          "urma_us": 19466.405,
+          "urma_gbps": 40,
+          "epilogue_us": 304.702
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 505.08,
+          "urma_us": 19466.971,
+          "urma_gbps": 40,
+          "epilogue_us": 303.29
+        }
+      ],
+      "old-shared-fp8": [
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 86.386,
+          "urma_us": 10048.775,
+          "urma_gbps": 40,
+          "epilogue_us": 358.778
+        },
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 84.289,
+          "urma_us": 10048.931,
+          "urma_gbps": 40,
+          "epilogue_us": 356.606
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 84.782,
+          "urma_us": 10049.174,
+          "urma_gbps": 40,
+          "epilogue_us": 358.747
+        },
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 83.967,
+          "urma_us": 10049.405,
+          "urma_gbps": 40,
+          "epilogue_us": 359.579
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 79.218,
+          "urma_us": 9913.609,
+          "urma_gbps": 41,
+          "epilogue_us": 356.837
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 77.061,
+          "urma_us": 9912.839,
+          "urma_gbps": 41,
+          "epilogue_us": 351.604
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 77.008,
+          "urma_us": 9912.698,
+          "urma_gbps": 41,
+          "epilogue_us": 355.312
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 77.454,
+          "urma_us": 9913.244,
+          "urma_gbps": 41,
+          "epilogue_us": 353.427
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 506.699,
+          "urma_us": 19690.248,
+          "urma_gbps": 39,
+          "epilogue_us": 303.207
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 498.286,
+          "urma_us": 19690.308,
+          "urma_gbps": 39,
+          "epilogue_us": 304.712
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 504.55,
+          "urma_us": 19690.614,
+          "urma_gbps": 39,
+          "epilogue_us": 304.135
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 507.107,
+          "urma_us": 19690.546,
+          "urma_gbps": 39,
+          "epilogue_us": 303.314
+        }
+      ]
+    },
+    "checks": [
+      "EP2 BF16/FP8 masked routing, non-divisible token counts",
+      "EP4 BF16/FP8 correctness and cached replay at 1024 and 16384 tokens",
+      "EP4 deterministic, do_cpu_sync=0, 16 AI cores, 257 tokens, masked_ratio=0.25",
+      "PP four-rank stress regression"
+    ]
+  },
+  "ep8": {
+    "task_id": "task_20261015_100430_279868812429",
+    "exit_code": 0,
+    "physical_devices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "config": {
+      "ep": 8,
+      "network_layer": 0,
+      "tokens_per_rank": 16384,
+      "hidden": 7168,
+      "topk": 6,
+      "experts": 256,
+      "ai_cores": 32,
+      "expert_alignment": 128,
+      "warmups": 10,
+      "samples": 50,
+      "flush_l2": true,
+      "accounting": "received logical tensor bytes, including local tokens"
+    },
+    "cases": {
+      "native-bf16": [
+        {
+          "rank": 7,
+          "operation": "dispatch",
+          "prologue_us": 119.453,
+          "urma_us": 11318.09,
+          "urma_gbps": 93,
+          "epilogue_us": 734.911
+        },
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 117.046,
+          "urma_us": 11317.98,
+          "urma_gbps": 93,
+          "epilogue_us": 736.103
+        },
+        {
+          "rank": 5,
+          "operation": "dispatch",
+          "prologue_us": 125.387,
+          "urma_us": 11317.783,
+          "urma_gbps": 93,
+          "epilogue_us": 735.824
+        },
+        {
+          "rank": 6,
+          "operation": "dispatch",
+          "prologue_us": 118.97,
+          "urma_us": 11317.969,
+          "urma_gbps": 93,
+          "epilogue_us": 737.67
+        },
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 117.895,
+          "urma_us": 11317.808,
+          "urma_gbps": 92,
+          "epilogue_us": 730.745
+        },
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 115.815,
+          "urma_us": 11317.708,
+          "urma_gbps": 92,
+          "epilogue_us": 733.34
+        },
+        {
+          "rank": 4,
+          "operation": "dispatch",
+          "prologue_us": 118.365,
+          "urma_us": 11317.618,
+          "urma_gbps": 92,
+          "epilogue_us": 733.276
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 118.287,
+          "urma_us": 11318.118,
+          "urma_gbps": 93,
+          "epilogue_us": 740.905
+        },
+        {
+          "rank": 7,
+          "operation": "cached",
+          "prologue_us": 113.433,
+          "urma_us": 11563.01,
+          "urma_gbps": 91,
+          "epilogue_us": 726.999
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 108.819,
+          "urma_us": 11562.553,
+          "urma_gbps": 90,
+          "epilogue_us": 723.523
+        },
+        {
+          "rank": 4,
+          "operation": "cached",
+          "prologue_us": 111.946,
+          "urma_us": 11562.71,
+          "urma_gbps": 90,
+          "epilogue_us": 720.898
+        },
+        {
+          "rank": 6,
+          "operation": "cached",
+          "prologue_us": 111.549,
+          "urma_us": 11562.587,
+          "urma_gbps": 91,
+          "epilogue_us": 722.166
+        },
+        {
+          "rank": 5,
+          "operation": "cached",
+          "prologue_us": 117.479,
+          "urma_us": 11562.643,
+          "urma_gbps": 91,
+          "epilogue_us": 722.782
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 112.033,
+          "urma_us": 11562.543,
+          "urma_gbps": 91,
+          "epilogue_us": 722.275
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 110.705,
+          "urma_us": 11562.742,
+          "urma_gbps": 91,
+          "epilogue_us": 725.09
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 110.359,
+          "urma_us": 11562.496,
+          "urma_gbps": 90,
+          "epilogue_us": 719.02
+        },
+        {
+          "rank": 6,
+          "operation": "combine",
+          "prologue_us": 399.261,
+          "urma_us": 11994.362,
+          "urma_gbps": 87,
+          "epilogue_us": 383.42
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 400.148,
+          "urma_us": 11994.512,
+          "urma_gbps": 87,
+          "epilogue_us": 383.634
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 402.222,
+          "urma_us": 11994.505,
+          "urma_gbps": 87,
+          "epilogue_us": 384.814
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 403.41,
+          "urma_us": 11994.501,
+          "urma_gbps": 87,
+          "epilogue_us": 385.074
+        },
+        {
+          "rank": 5,
+          "operation": "combine",
+          "prologue_us": 403.437,
+          "urma_us": 11994.587,
+          "urma_gbps": 87,
+          "epilogue_us": 383.1
+        },
+        {
+          "rank": 4,
+          "operation": "combine",
+          "prologue_us": 401.711,
+          "urma_us": 11994.442,
+          "urma_gbps": 87,
+          "epilogue_us": 384.765
+        },
+        {
+          "rank": 7,
+          "operation": "combine",
+          "prologue_us": 402.19,
+          "urma_us": 11994.382,
+          "urma_gbps": 87,
+          "epilogue_us": 385.197
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 400.58,
+          "urma_us": 11994.534,
+          "urma_gbps": 87,
+          "epilogue_us": 385.234
+        }
+      ],
+      "native-fp8": [
+        {
+          "rank": 3,
+          "operation": "dispatch",
+          "prologue_us": 78.152,
+          "urma_us": 5926.355,
+          "urma_gbps": 91,
+          "epilogue_us": 394.079
+        },
+        {
+          "rank": 0,
+          "operation": "dispatch",
+          "prologue_us": 78.45,
+          "urma_us": 5926.296,
+          "urma_gbps": 92,
+          "epilogue_us": 394.571
+        },
+        {
+          "rank": 5,
+          "operation": "dispatch",
+          "prologue_us": 81.7,
+          "urma_us": 5926.724,
+          "urma_gbps": 92,
+          "epilogue_us": 395.39
+        },
+        {
+          "rank": 6,
+          "operation": "dispatch",
+          "prologue_us": 80.148,
+          "urma_us": 5925.92,
+          "urma_gbps": 92,
+          "epilogue_us": 395.219
+        },
+        {
+          "rank": 2,
+          "operation": "dispatch",
+          "prologue_us": 78.178,
+          "urma_us": 5926.353,
+          "urma_gbps": 92,
+          "epilogue_us": 395.476
+        },
+        {
+          "rank": 4,
+          "operation": "dispatch",
+          "prologue_us": 81.031,
+          "urma_us": 5926.459,
+          "urma_gbps": 91,
+          "epilogue_us": 394.258
+        },
+        {
+          "rank": 1,
+          "operation": "dispatch",
+          "prologue_us": 76.188,
+          "urma_us": 5926.377,
+          "urma_gbps": 91,
+          "epilogue_us": 391.73
+        },
+        {
+          "rank": 7,
+          "operation": "dispatch",
+          "prologue_us": 79.347,
+          "urma_us": 5926.301,
+          "urma_gbps": 92,
+          "epilogue_us": 396.191
+        },
+        {
+          "rank": 0,
+          "operation": "cached",
+          "prologue_us": 69.77,
+          "urma_us": 5795.995,
+          "urma_gbps": 94,
+          "epilogue_us": 384.223
+        },
+        {
+          "rank": 3,
+          "operation": "cached",
+          "prologue_us": 68.555,
+          "urma_us": 5795.486,
+          "urma_gbps": 93,
+          "epilogue_us": 384.267
+        },
+        {
+          "rank": 7,
+          "operation": "cached",
+          "prologue_us": 72.856,
+          "urma_us": 5795.529,
+          "urma_gbps": 94,
+          "epilogue_us": 386.169
+        },
+        {
+          "rank": 4,
+          "operation": "cached",
+          "prologue_us": 72.622,
+          "urma_us": 5795.862,
+          "urma_gbps": 93,
+          "epilogue_us": 383.361
+        },
+        {
+          "rank": 5,
+          "operation": "cached",
+          "prologue_us": 72.452,
+          "urma_us": 5795.658,
+          "urma_gbps": 94,
+          "epilogue_us": 385.545
+        },
+        {
+          "rank": 2,
+          "operation": "cached",
+          "prologue_us": 69.884,
+          "urma_us": 5795.862,
+          "urma_gbps": 94,
+          "epilogue_us": 384.856
+        },
+        {
+          "rank": 1,
+          "operation": "cached",
+          "prologue_us": 68.22,
+          "urma_us": 5795.679,
+          "urma_gbps": 93,
+          "epilogue_us": 381.134
+        },
+        {
+          "rank": 6,
+          "operation": "cached",
+          "prologue_us": 72.797,
+          "urma_us": 5795.626,
+          "urma_gbps": 94,
+          "epilogue_us": 384.31
+        },
+        {
+          "rank": 3,
+          "operation": "combine",
+          "prologue_us": 402.756,
+          "urma_us": 12035.521,
+          "urma_gbps": 86,
+          "epilogue_us": 383.276
+        },
+        {
+          "rank": 2,
+          "operation": "combine",
+          "prologue_us": 401.163,
+          "urma_us": 12035.415,
+          "urma_gbps": 87,
+          "epilogue_us": 384.164
+        },
+        {
+          "rank": 0,
+          "operation": "combine",
+          "prologue_us": 402.62,
+          "urma_us": 12035.472,
+          "urma_gbps": 87,
+          "epilogue_us": 384.699
+        },
+        {
+          "rank": 4,
+          "operation": "combine",
+          "prologue_us": 400.769,
+          "urma_us": 12035.581,
+          "urma_gbps": 86,
+          "epilogue_us": 384.497
+        },
+        {
+          "rank": 1,
+          "operation": "combine",
+          "prologue_us": 398.862,
+          "urma_us": 12035.381,
+          "urma_gbps": 86,
+          "epilogue_us": 386.175
+        },
+        {
+          "rank": 6,
+          "operation": "combine",
+          "prologue_us": 400.776,
+          "urma_us": 12035.43,
+          "urma_gbps": 87,
+          "epilogue_us": 382.901
+        },
+        {
+          "rank": 7,
+          "operation": "combine",
+          "prologue_us": 401.154,
+          "urma_us": 12035.424,
+          "urma_gbps": 87,
+          "epilogue_us": 384.291
+        },
+        {
+          "rank": 5,
+          "operation": "combine",
+          "prologue_us": 404.0,
+          "urma_us": 12035.464,
+          "urma_gbps": 87,
+          "epilogue_us": 383.84
+        }
+      ]
+    }
+  }
+}

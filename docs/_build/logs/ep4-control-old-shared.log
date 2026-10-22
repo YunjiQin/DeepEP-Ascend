@@ -1,0 +1,25 @@
+Initializing EP buffer with 945815552 bytes at rank EP 2/4
+Initializing EP buffer with 945815552 bytes at rank EP 3/4
+Initializing EP buffer with 945815552 bytes at rank EP 0/4
+Initializing EP buffer with 945815552 bytes at rank EP 1/4
+Config:
+ > Ranks: 4
+ > Experts: 6/256
+ > Tokens: 16384 (max: 16384), hidden: 7168
+ > #AI cores: 32
+ > Modes: do_expand=1, allow_hybrid_mode=0, allow_multiple_reduction=1
+
+Running expand dispatch/combine test cases:
+ > Testing with expert_alignment=128, use_fp8_dispatch=True, use_col_major_sf=False, bias=None ...
+   * EP:   1/  4 | dispatch: 86.386 us | urma: 10048.775 us, 40 GB/s | epilogue: 358.778 us, 3240 GB/s
+   * EP:   3/  4 | dispatch: 84.289 us | urma: 10048.931 us, 40 GB/s | epilogue: 356.606 us, 3244 GB/s
+   * EP:   0/  4 | dispatch: 84.782 us | urma: 10049.174 us, 40 GB/s | epilogue: 358.747 us, 3242 GB/s
+   * EP:   2/  4 | dispatch: 83.967 us | urma: 10049.405 us, 40 GB/s | epilogue: 359.579 us, 3242 GB/s
+   * EP:   1/  4 | cached  : 79.218 us | urma: 9913.609 us, 41 GB/s | epilogue: 356.837 us, 3254 GB/s
+   * EP:   3/  4 | cached  : 77.061 us | urma: 9912.839 us, 41 GB/s | epilogue: 351.604 us, 3286 GB/s
+   * EP:   2/  4 | cached  : 77.008 us | urma: 9912.698 us, 41 GB/s | epilogue: 355.312 us, 3277 GB/s
+   * EP:   0/  4 | cached  : 77.454 us | urma: 9913.244 us, 41 GB/s | epilogue: 353.427 us, 3287 GB/s
+   * EP:   2/  4 | combine: 506.699 us | urma: 19690.248 us, 39 GB/s | epilogue: 303.207 us, 3328 GB/s
+   * EP:   3/  4 | combine: 498.286 us | urma: 19690.308 us, 39 GB/s | epilogue: 304.712 us, 3315 GB/s
+   * EP:   1/  4 | combine: 504.550 us | urma: 19690.614 us, 39 GB/s | epilogue: 304.135 us, 3326 GB/s
+   * EP:   0/  4 | combine: 507.107 us | urma: 19690.546 us, 39 GB/s | epilogue: 303.314 us, 3323 GB/s

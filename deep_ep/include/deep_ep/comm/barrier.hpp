@@ -129,12 +129,15 @@ __aicore__ __forceinline__ void barrier(
     if constexpr (kFlushStores and kNumRanks > 1 and kNumJetties > 0) {
         if (jetty_ptrs != nullptr) {
             // Distribute scalar jetty drains across all AIVs, then synchronize them.
-            for (int jetty_idx = vec_core_idx; jetty_idx < kNumJetties; jetty_idx += kNumVecCores) {
-                handle::HcommJetty jetty(
-                    reinterpret_cast<__ubuf__ handle::HcommJettyInfo*>(0),
-                    nullptr,
-                    jetty_ptrs, jetty_idx);
-                jetty.template drain<kNumTimeoutCycles>();
+            constexpr auto kQueuesPerCore = kNativeMeshJetties ? kNumRanks - 1 : 1;
+            for (int core_idx = vec_core_idx; core_idx < kNumJetties; core_idx += kNumVecCores) {
+                for (int peer_idx = 0; peer_idx < kQueuesPerCore; ++ peer_idx) {
+                    handle::HcommJetty jetty(
+                        reinterpret_cast<__ubuf__ handle::HcommJettyInfo*>(0),
+                        nullptr,
+                        jetty_ptrs, core_idx * kQueuesPerCore + peer_idx);
+                    jetty.template drain<kNumTimeoutCycles>();
+                }
             }
             AscendC::SyncAll<true>();
         }

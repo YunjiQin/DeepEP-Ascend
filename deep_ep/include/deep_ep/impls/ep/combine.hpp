@@ -38,6 +38,9 @@ struct CombineUBLayout {
     static constexpr int kNumWQEBBsPerTask = kNumTokensPerTask * kNumWQEBBsPerToken;
 
     handle::HcommJettyInfo jetty_info;
+    alignas(kNumUbAlignmentBytes) handle::HcommJettyInfo peer_jetties[kNativeMeshJetties ? kNumRanks : 1];
+    alignas(kNumUbAlignmentBytes) uint32_t peer_next_sqebb_idx[kNativeMeshJetties ? kNumRanks : 1];
+    alignas(kNumUbAlignmentBytes) int peer_issued_tasks[kNativeMeshJetties ? kNumRanks : 1];
     alignas(kNumUbAlignmentBytes) handle::HcommPeerInfo peer_infos[kNumRanks];
     alignas(kNumUbAlignmentBytes) int remaining_tokens[kNumRanks];
     alignas(kNumUbAlignmentBytes) int rank_next_recv_slot_idx[kNumRanks];
@@ -45,6 +48,8 @@ struct CombineUBLayout {
 
     static constexpr int kNumFixedBytes =
         math::align(static_cast<int>(sizeof(handle::HcommJettyInfo)), kNumUbAlignmentBytes) +
+        math::align(static_cast<int>(sizeof(handle::HcommJettyInfo)) * (kNativeMeshJetties ? kNumRanks : 1), kNumUbAlignmentBytes) +
+        2 * math::align(static_cast<int>(sizeof(uint32_t)) * (kNativeMeshJetties ? kNumRanks : 1), kNumUbAlignmentBytes) +
         math::align(kNumRanks * static_cast<int>(sizeof(handle::HcommPeerInfo)), kNumUbAlignmentBytes) +
         2 * math::align(kNumRanks * static_cast<int>(sizeof(int)), kNumUbAlignmentBytes) +
         math::align(kNumStages * kNumTokensPerTask * kNumUbMetadataElems * static_cast<int>(sizeof(int)), kNumUbAlignmentBytes);
@@ -111,7 +116,7 @@ __simt_vf__ __aicore__ __launch_bounds__(kNumTokensPerTask * warpSize) void load
 
     if (issue_wqe and valid_token and lane_idx < ub_layout_t::kNumWQEWords) {
         const auto token_sqebb_idx = task_sqebb_idx + token_idx * ub_layout_t::kNumWQEBBsPerToken;
-        const auto gm_wqe = reinterpret_cast<__gm__ uint64_t*>(ub->jetty_info.sq_base_addr +
+        const auto gm_wqe = reinterpret_cast<__gm__ uint64_t*>((kNativeMeshJetties ? ub->peer_jetties[task.rank_idx].sq_base_addr : ub->jetty_info.sq_base_addr) +
             (token_sqebb_idx & (handle::kSQDepth - 1)) * handle::kNumWQEBBBytes);
         uint64_t wqe_word = 0;
         if (lane_idx < 10) {
@@ -152,11 +157,11 @@ __simt_vf__ __aicore__ __launch_bounds__(kNumTokensPerTask * warpSize) void load
 
 template <int kNumRanks>
 __simt_vf__ __aicore__ __launch_bounds__(math::align(kNumRanks, warpSize))
-void load_combine_peers(__ubuf__ handle::HcommPeerInfo* peers, __gm__ void* jetty_ptrs, const int rank_idx) {
+void load_combine_peers(__ubuf__ handle::HcommPeerInfo* peers, __gm__ void* jetty_ptrs, const int rank_idx, const int vec_core_idx) {
     const auto peer_idx = static_cast<int>(threadIdx.x);
     if (peer_idx < kNumRanks and peer_idx != rank_idx)
         handle::HcommPeerInfo::load_peer_info(peers + peer_idx, static_cast<__gm__ const uint64_t*>(jetty_ptrs),
-                              peer_idx < rank_idx ? peer_idx : peer_idx - 1);
+                              (kNativeMeshJetties ? vec_core_idx * (kNumRanks - 1) : 0) + (peer_idx < rank_idx ? peer_idx : peer_idx - 1));
 }
 
 template <int kNumRanks, int kNumTopk, int kHidden, int kNumMaxTokensPerRank, int kNumVecCores,
@@ -203,10 +208,22 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
 
     comm::scalar::barrier<kNumRanks, kNumTimeoutCycles, false>(signals.common_signals, vec_core_idx);
 
-    handle::HcommJetty jetty(&ub->jetty_info, nullptr, jetty_ptrs, vec_core_idx);
+    handle::HcommJetty jetty(&ub->jetty_info, nullptr, kNativeMeshJetties ? nullptr : jetty_ptrs, vec_core_idx);
+    if constexpr (kNativeMeshJetties and kNumRanks > 1) {
+        for (int peer = 0; peer < kNumRanks; ++ peer) {
+            if (peer == rank_idx)
+                continue;
+            const auto peer_idx = peer < rank_idx ? peer : peer - 1;
+            handle::HcommJetty peer_jetty(&ub->peer_jetties[peer], nullptr, jetty_ptrs,
+                                          vec_core_idx * (kNumRanks - 1) + peer_idx);
+            ub->peer_next_sqebb_idx[peer] = static_cast<uint32_t>(ub->peer_jetties[peer].packed_head);
+            ub->peer_issued_tasks[peer] = 0;
+            EP_DEVICE_ASSERT(ub->peer_next_sqebb_idx[peer] % kSQEBBAlignment == 0);
+        }
+    }
     if constexpr (kNumRanks > 1) {
         AscendC::Simt::VF_CALL<load_combine_peers<kNumRanks>>(
-            AscendC::Simt::Dim3(math::align(kNumRanks, warpSize), 1, 1), ub->peer_infos, jetty_ptrs, rank_idx);
+            AscendC::Simt::Dim3(math::align(kNumRanks, warpSize), 1, 1), ub->peer_infos, jetty_ptrs, rank_idx, vec_core_idx);
         asc_sync_notify(PIPE_V, PIPE_S, EVENT_ID0);
         asc_sync_wait(PIPE_V, PIPE_S, EVENT_ID0);
     }
@@ -252,8 +269,8 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
         return CombineTask{task_rank_idx, num_task_tokens, rank_slot_idx};
     };
 
-    const auto sq_base_addr = kNumRanks > 1 ? reinterpret_cast<__gm__ uint8_t*>(ub->jetty_info.sq_base_addr) : nullptr;
-    const auto sq_head = kNumRanks > 1 ? static_cast<uint32_t>(ub->jetty_info.packed_head) : 0;
+    const auto sq_base_addr = kNumRanks > 1 and not kNativeMeshJetties ? reinterpret_cast<__gm__ uint8_t*>(ub->jetty_info.sq_base_addr) : nullptr;
+    const auto sq_head = kNumRanks > 1 and not kNativeMeshJetties ? static_cast<uint32_t>(ub->jetty_info.packed_head) : 0;
     if constexpr (kNumRanks > 1) {
         EP_DEVICE_ASSERT(sq_head % kSQEBBAlignment == 0);
         EP_DEVICE_ASSERT(num_remote_tasks == 0 or
@@ -269,7 +286,7 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
         const auto task = get_task();
         const auto issue_wqe = task.rank_idx != rank_idx;
         fetched_tasks[stage_idx] = task;
-        const auto task_sqebb_idx = next_remote_sqebb_idx;
+        const auto task_sqebb_idx = kNativeMeshJetties and issue_wqe ? ub->peer_next_sqebb_idx[task.rank_idx] : next_remote_sqebb_idx;
         AscendC::Simt::VF_CALL<load_meta_issue_wqe<kNumRanks, kNumTopk, kNumMaxTokensPerRank,
                                                  kNumVecCores, kNumTokensPerTask, UBLayout, kHasTopkWeights>>(
             AscendC::Simt::Dim3(kNumTokensPerTask * warpSize, 1, 1),
@@ -277,9 +294,13 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
             combine_recv_buffer_offset, task, task_sqebb_idx, stage_idx, rank_idx, issue_wqe
         );
         asc_sync_notify(PIPE_V, PIPE_S, static_cast<event_t>(stage_idx));
-        if (issue_wqe)
-            next_remote_sqebb_idx += task.num_tokens * kNumWQEBBsPerToken;
-        fetched_sq_ends[stage_idx] = next_remote_sqebb_idx;
+        if (issue_wqe) {
+            if constexpr (kNativeMeshJetties)
+                ub->peer_next_sqebb_idx[task.rank_idx] += task.num_tokens * kNumWQEBBsPerToken;
+            else
+                next_remote_sqebb_idx += task.num_tokens * kNumWQEBBsPerToken;
+        }
+        fetched_sq_ends[stage_idx] = kNativeMeshJetties and issue_wqe ? ub->peer_next_sqebb_idx[task.rank_idx] : next_remote_sqebb_idx;
     };
 
     #pragma unroll 1
@@ -326,11 +347,20 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
 
         issue_load_meta_wqe(stage_idx, task_iter_idx + kNumStages);
 
-        if (not is_local and (++ num_issued_remote_tasks % kNumTasksPerDoorbell == 0)) {
-            asc_sync_notify(PIPE_MTE3, PIPE_S, static_cast<event_t>(stage_idx));
-            asc_sync_wait(PIPE_MTE3, PIPE_S, static_cast<event_t>(stage_idx));
-            jetty.set_sq_head(current_sq_end);
-            jetty.ring_doorbell();
+        if (not is_local) {
+            const auto issued = kNativeMeshJetties ? ++ ub->peer_issued_tasks[current_task.rank_idx] : ++ num_issued_remote_tasks;
+            if (issued % kNumTasksPerDoorbell == 0) {
+                asc_sync_notify(PIPE_MTE3, PIPE_S, static_cast<event_t>(stage_idx));
+                asc_sync_wait(PIPE_MTE3, PIPE_S, static_cast<event_t>(stage_idx));
+                if constexpr (kNativeMeshJetties) {
+                    handle::HcommJetty peer_jetty(&ub->peer_jetties[current_task.rank_idx], nullptr, nullptr, 0);
+                    peer_jetty.set_sq_head(current_sq_end);
+                    peer_jetty.ring_doorbell();
+                } else {
+                    jetty.set_sq_head(current_sq_end);
+                    jetty.ring_doorbell();
+                }
+            }
         }
 
         stage_idx = stage_idx + 1 == kNumStages ? 0 : stage_idx + 1;
@@ -339,23 +369,30 @@ __global__ __vector__ void combine_impl(__gm__ bfloat16_t* x, __gm__ float* topk
     asc_sync_notify(PIPE_MTE3, PIPE_S, EVENT_ID0);
     asc_sync_wait(PIPE_MTE3, PIPE_S, EVENT_ID0);
 
-    // Append a strong-order NOP requesting CQE; the barrier only polls completion.
-    if (num_remote_tasks > 0) {
-        const auto final_sqebb_idx = sq_head + num_remote_tokens * kNumWQEBBsPerToken;
+    // Append one strong-order completion NOP to every active SQ.
+    const auto finish_queue = [&](__ubuf__ handle::HcommJettyInfo* queue_info, uint32_t final_sqebb_idx) __aicore__ {
         const auto new_head = math::align(final_sqebb_idx + 1, static_cast<uint32_t>(kSQEBBAlignment));
         const auto num_final_wqebbs = new_head - final_sqebb_idx;
         for (int wqebb_idx = 0; wqebb_idx < num_final_wqebbs; ++ wqebb_idx) {
             const auto nop_sqebb_idx = final_sqebb_idx + wqebb_idx;
             const auto owner = static_cast<uint64_t>((nop_sqebb_idx & handle::kSQDepth) == 0) << 31;
             const auto flags = wqebb_idx + 1 == num_final_wqebbs ? (2ULL << 16) | (1ULL << 21) : 0;
-            const auto gm_nop_wqe = reinterpret_cast<__gm__ uint64_t*>(sq_base_addr +
+            const auto gm_nop_wqe = reinterpret_cast<__gm__ uint64_t*>(queue_info->sq_base_addr +
                 (nop_sqebb_idx & (handle::kSQDepth - 1)) * handle::kNumWQEBBBytes);
             AscendC::WriteGmByPassDCache(gm_nop_wqe,
                 static_cast<uint64_t>(handle::kNopSQEHeaderTemplate | flags | owner |
                                       (nop_sqebb_idx & (handle::kSQDepth - 1))));
         }
-        jetty.advance_sq(new_head - static_cast<uint32_t>(ub->jetty_info.packed_head));
-        jetty.ring_doorbell();
+        handle::HcommJetty queue(queue_info, nullptr, nullptr, 0);
+        queue.advance_sq(new_head - static_cast<uint32_t>(queue_info->packed_head));
+        queue.ring_doorbell();
+    };
+    if constexpr (kNativeMeshJetties) {
+        for (int peer = 0; peer < kNumRanks; ++ peer)
+            if (peer != rank_idx and ub->peer_issued_tasks[peer] > 0)
+                finish_queue(&ub->peer_jetties[peer], ub->peer_next_sqebb_idx[peer]);
+    } else if (num_remote_tasks > 0) {
+        finish_queue(&ub->jetty_info, sq_head + num_remote_tokens * kNumWQEBBsPerToken);
     }
 
     if constexpr (kDoBarrier)
